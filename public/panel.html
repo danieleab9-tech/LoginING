@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <main class="tarjeta ancha" id="contenido" hidden>
+    <div class="encabezado">
+      <div>
+        <h1>Hola, <span id="nombre"></span></h1>
+        <p class="sub" style="margin-bottom:0">
+          <span class="etiqueta" id="rol"></span> · Último acceso: <span id="ultimo"></span>
+        </p>
+      </div>
+      <button class="secundario" id="salir">Cerrar sesión</button>
+    </div>
+
+    <p style="margin-top:24px">Iniciaste sesión correctamente. Aquí irán los módulos del sistema.</p>
+
+    <section id="admin" hidden>
+      <h2>Usuarios registrados</h2>
+      <div class="tabla-envoltura">
+        <table>
+          <thead><tr><th>#</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Último acceso</th></tr></thead>
+          <tbody id="tabla-usuarios"></tbody>
+        </table>
+      </div>
+
+      <h2>Bitácora de accesos (últimos 20)</h2>
+      <div class="tabla-envoltura">
+        <table>
+          <thead><tr><th>Fecha</th><th>Correo</th><th>Resultado</th><th>Motivo</th></tr></thead>
+          <tbody id="tabla-accesos"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (async () => {
+      const r = await api('/api/sesion');
+      if (!r.ok) return (location.href = '/');   // Página protegida: sin sesión, regresa al login
+
+      const u = r.datos.usuario;
+      document.getElementById('nombre').textContent = u.nombre;
+      document.getElementById('rol').textContent = u.rol === 'admin' ? 'Administrador' : 'Usuario';
+      document.getElementById('ultimo').textContent = formatearFecha(u.ultimo_acceso);
+      document.getElementById('contenido').hidden = false;
+
+      if (u.rol === 'admin') {
+        const a = await api('/api/usuarios');
+        if (a.ok) {
+          document.getElementById('tabla-usuarios').innerHTML = a.datos.usuarios.map(x => `
+            <tr><td>${x.id}</td><td>${escapar(x.nombre)}</td><td>${escapar(x.email)}</td>
+            <td>${x.rol}</td><td>${x.bloqueado ? 'Bloqueado' : 'Activo'}</td>
+            <td>${formatearFecha(x.ultimo_acceso)}</td></tr>`).join('');
+          document.getElementById('tabla-accesos').innerHTML = a.datos.accesos.map(x => `
+            <tr><td>${formatearFecha(x.fecha)}</td><td>${escapar(x.email)}</td>
+            <td>${x.exito ? 'Éxito' : 'Fallido'}</td><td>${escapar(x.motivo)}</td></tr>`).join('');
+          document.getElementById('admin').hidden = false;
+        }
+      }
+    })();
+
+    document.getElementById('salir').addEventListener('click', async () => {
+      await api('/api/logout', { method: 'POST' });
+      location.href = '/';
+    });
+  </script>
+</body>
+</html>
